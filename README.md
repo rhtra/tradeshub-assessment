@@ -6,4 +6,6 @@ URL/properties [GET METHOD]
 URL/addProperty [POST METHOD]    
 
 To Do:  
-Integrate Database for data collection (will include sql file to push)
+Integrate Database for data collection (will include sql file to push)  
+Pagination for get requests  
+Message queue for writes  
