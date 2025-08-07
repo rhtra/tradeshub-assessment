@@ -1,94 +1,76 @@
 const express = require('express');
-const cors = require('cors');
-const fs = require('fs').promises; // use promise-based fs
-const path = require('path');
 
 const app = express();
 const PORT = 3000;
-const DATA_FILE = path.join(__dirname, 'data.json');
-
-let properties = [];
-
-// Load properties from JSON file at startup
-async function loadProperties() {
-  try {
-    const data = await fs.readFile(DATA_FILE, 'utf8');
-    properties = JSON.parse(data);
-    console.log(`Loaded ${properties.length} properties from file.`);
-  } catch (err) {
-    console.error('Failed to load properties:', err);
-    properties = []; // fallback to empty array
-  }
-}
-
-// Save updated properties to JSON file
-async function saveProperties() {
-  try {
-    await fs.writeFile(DATA_FILE, JSON.stringify(properties, null, 2));
-  } catch (err) {
-    console.error('Failed to save properties:', err);
-  }
-}
-
-// Calculate average price for a given suburb
-function calculateAveragePrice(suburb) {
-  const suburbProperties = properties.filter(p => p.suburb === suburb);
-  if (suburbProperties.length === 0) return null;
-
-  const total = suburbProperties.reduce((sum, p) => sum + p.salePrice, 0);
-  return total / suburbProperties.length;
-}
 
 // Middleware
-app.use(cors());
 app.use(express.json());
 
-// POST /addProperty
-app.post('/addProperty', async (req, res) => {
-  const { address, suburb, salePrice, description } = req.body;
+// Utils
+function fibonacciUpTo(n, a = 0, b = 1) {
+  if (n < 0) return [];
 
-  if (!address || !suburb || !salePrice || !description) {
-    return res.status(400).json({ error: 'Missing required fields: address, suburb, salePrice, description' });
+  const sequence = [a, b];
+  while (true) {
+    const next = sequence[sequence.length - 1] + sequence[sequence.length - 2];
+    if (next > n) break;
+    sequence.push(next);
   }
 
-  const newProperty = { address, suburb, salePrice, description };
-  properties.push(newProperty);
+  return n >= 1 ? sequence : [0];
+}
 
-  await saveProperties();
+function maxNonAdjacentSum(nums) {
+  if (!nums || nums.length === 0) return 0;
+  if (nums.length === 1) return nums[0];
 
-  res.status(201).json({
-    message: 'Property added successfully',
-    property: newProperty
-  });
+  let include = nums[0];
+  let exclude = 0;
+
+  for (let i = 1; i < nums.length; i++) {
+    const newInclude = exclude + nums[i];
+    const newExclude = Math.max(include, exclude);
+    include = newInclude;
+    exclude = newExclude;
+  }
+
+  return Math.max(include, exclude);
+}
+
+// --- Routes ---
+
+// GET /fibonacci?n=10
+// GET /fibonacci?n=10&a=2&b=4 - optional for a and b for initial sequence
+// GET /fibonacci?n=10&a=3 - optional for a and b for initial sequence
+// GET /fibonacci?n=10&b=4 - optional for a and b for initial sequence
+app.get('/fibonacci', (req, res) => {
+  const n = parseInt(req.query.n, 10);
+  const a = req.query.a !== undefined ? parseInt(req.query.a, 10) : 0;
+  const b = req.query.b !== undefined ? parseInt(req.query.b, 10) : 1;
+
+  if (isNaN(n) || isNaN(a) || isNaN(b)) {
+    return res.status(400).json({ error: 'Invalid input(s). Ensure a, b, and n are numbers.' });
+  }
+
+  const result = fibonacciUpTo(n, a, b);
+  res.json({ input: { a, b, n }, sequence: result });
 });
 
-// GET /properties?suburb=SuburbA
-app.get('/properties', (req, res) => {
-  const suburbFilter = req.query.suburb?.toLowerCase();
-  let results = properties;
 
-  if (suburbFilter) {
-    results = results.filter(p => p.suburb.toLowerCase() === suburbFilter);
-  }
+// GET /max-sum?nums=2,4,6,2,5
+app.get('/max-sum', (req, res) => {
+  const nums = req.query.nums?.split(',').map(Number);
+  if (!nums || nums.some(isNaN)) return res.status(400).json({ error: 'Invalid nums array' });
 
-  const enrichedResults = results.map(property => {
-    const avgPrice = calculateAveragePrice(property.suburb);
-    let comparison = 'equal';
-    if (property.salePrice > avgPrice) comparison = 'above';
-    else if (property.salePrice < avgPrice) comparison = 'below';
-
-    return {
-      address: property.address,
-      salePrice: property.salePrice,
-      priceComparedToAvg: comparison,
-    };
-  });
-
-  res.json(enrichedResults);
+  const result = maxNonAdjacentSum(nums);
+  res.json({ input: nums, maxSum: result });
 });
 
 // Start server
 app.listen(PORT, async () => {
-  await loadProperties(); // ensure properties are loaded before accepting requests
+  console.log(fibonacciUpTo(10));
+  console.log(fibonacciUpTo(25, 6, 3));
+  console.log(maxNonAdjacentSum([2, 4, 6, 2, 5]));
+  console.log(maxNonAdjacentSum([5, 1, 1, 5])); 
   console.log(`Server running at http://localhost:${PORT}`);
 });
